@@ -1,0 +1,2190 @@
+{
+  "info": {
+    "name": "Laravel Product API - Complete Automated Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run all 49 requests in order with 1 iteration and 0 ms delay. Wait 65 seconds after previous registration/login testing before starting. Allowlist 127.0.0.1 in Cookies > Domains Allowlist. Use No Environment and enable the cookie jar. The first request generates fresh emails. Creates two disposable test users; deletes only products created by this run. Users remain in the database. Existing users/products are not targeted. Every modifying request automatically reads the latest CSRF cookie, except intentional missing/invalid-token tests. On unexpected status, the Runner stops. Re-run from 01 with new users if interrupted. Verified locally against MySQL with 123 passing assertions. Demo passwords are disposable test fixtures, not application credentials."
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "StrongPassword123!",
+      "type": "string"
+    },
+    {
+      "key": "new_password",
+      "value": "AnotherStrongPassword123!",
+      "type": "string"
+    },
+    {
+      "key": "user_a_email",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_b_email",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_a_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_b_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_b_product_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const base = pm.variables.replaceIn(\"{{base_url}}\").replace(/\\/$/, \"\");",
+          "const mode = pm.request.headers.get(\"X-Postman-CSRF-Mode\") || \"valid\";",
+          "pm.request.headers.remove(\"X-Postman-CSRF-Mode\");",
+          "pm.request.headers.remove(\"X-XSRF-TOKEN\");",
+          "if (pm.info.requestName === \"01 - Initialize CSRF and fresh test users\") {",
+          "    const run = Date.now().toString() + Math.random().toString(16).slice(2, 8);",
+          "    pm.collectionVariables.set(\"user_a_email\", \"postman.a.\" + run + \"@example.test\");",
+          "    pm.collectionVariables.set(\"user_b_email\", \"postman.b.\" + run + \"@example.test\");",
+          "    [\"user_a_id\", \"user_b_id\", \"product_id\", \"user_b_product_id\"].forEach(key => pm.collectionVariables.unset(key));",
+          "}",
+          "const url = pm.variables.replaceIn(pm.request.url.toString());",
+          "if (/\\/products\\//.test(url)) {",
+          "    const id = url.split(\"/\").pop().split(\"?\")[0];",
+          "    if (!/^[1-9][0-9]*$/.test(id)) {",
+          "        pm.execution.setNextRequest(null);",
+          "        throw new Error(\"Product ID is missing. Run the collection from the beginning.\");",
+          "    }",
+          "}",
+          "if ([\"POST\", \"PUT\", \"PATCH\", \"DELETE\"].includes(pm.request.method)) {",
+          "    if (mode === \"invalid\") {",
+          "        pm.request.headers.upsert({key: \"X-XSRF-TOKEN\", value: \"intentionally-invalid-token\"});",
+          "    } else if (mode !== \"missing\") {",
+          "        pm.cookies.jar().get(base, \"XSRF-TOKEN\", (error, token) => {",
+          "            if (error || !token) {",
+          "                pm.execution.setNextRequest(null);",
+          "                throw new Error(\"Cannot read XSRF-TOKEN. Allowlist 127.0.0.1 in Cookies > Domains Allowlist, enable the cookie jar, then run from request 01. \" + (error || \"\"));",
+          "            }",
+          "            pm.request.headers.upsert({key: \"X-XSRF-TOKEN\", value: decodeURIComponent(token)});",
+          "        });",
+          "    }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Initialize CSRF and fresh test users",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "if (pm.response.code !== 204) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/sanctum/csrf-cookie",
+        "description": "Expected HTTP 204. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "02 - Register user A",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code !== 201) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.collectionVariables.set(\"user_a_id\", json.data.id);",
+              "    pm.test(\"Safe user response\", () => {",
+              "        pm.expect(json.data.email).to.equal(pm.collectionVariables.get(\"user_a_email\"));",
+              "        pm.expect(json.data).to.have.all.keys(\"id\", \"name\", \"email\");",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman User A\",\n  \"email\": \"{{user_a_email}}\",\n  \"password\": \"{{password}}\",\n  \"password_confirmation\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/register",
+        "description": "Expected HTTP 201. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "03 - View profile",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"User A is signed in\", () => pm.expect(json.data.id).to.equal(Number(pm.collectionVariables.get(\"user_a_id\"))));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/profile",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "04 - Existing user alias",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Alias returns user A\", () => pm.expect(json.data.id).to.equal(Number(pm.collectionVariables.get(\"user_a_id\"))));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/user",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "05 - Update profile name",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Name changed\", () => pm.expect(json.data.name).to.equal(\"Updated Postman User A\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated Postman User A\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/profile",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "06 - Verify profile persisted",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Name persisted\", () => pm.expect(json.data.name).to.equal(\"Updated Postman User A\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/profile",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "07 - Create product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code !== 201) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.collectionVariables.set(\"product_id\", json.data.id);",
+              "    pm.test(\"Product values\", () => {",
+              "        pm.expect(json.data.price).to.equal(\"125.50\");",
+              "        pm.expect(json.data.stock).to.equal(10);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Keyboard\",\n  \"description\": \"USB mechanical keyboard\",\n  \"price\": \"125.50\",\n  \"stock\": 10\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products",
+        "description": "Expected HTTP 201. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "08 - List products",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Own product is listed with pagination\", () => {",
+              "        pm.expect(json.data.map(p => p.id)).to.include(Number(pm.collectionVariables.get(\"product_id\")));",
+              "        pm.expect(json).to.have.property(\"links\");",
+              "        pm.expect(json.meta.per_page).to.equal(15);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "09 - View product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Correct product\", () => pm.expect(json.data.id).to.equal(Number(pm.collectionVariables.get(\"product_id\"))));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "10 - PATCH product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"PATCH values\", () => {",
+              "        pm.expect(json.data.name).to.equal(\"Updated Keyboard\");",
+              "        pm.expect(json.data.price).to.equal(\"99.99\");",
+              "        pm.expect(json.data.stock).to.equal(5);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated Keyboard\",\n  \"price\": \"99.99\",\n  \"stock\": 5\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "11 - PUT product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"PUT accepts partial updates\", () => {",
+              "        pm.expect(json.data.description).to.equal(null);",
+              "        pm.expect(json.data.stock).to.equal(8);",
+              "        pm.expect(json.data.name).to.equal(\"Updated Keyboard\");",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": null,\n  \"stock\": 8\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "12 - Verify product persisted",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Changes persisted\", () => {",
+              "        pm.expect(json.data.price).to.equal(\"99.99\");",
+              "        pm.expect(json.data.stock).to.equal(8);",
+              "        pm.expect(json.data.description).to.equal(null);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "13 - Missing CSRF rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 419\", () => pm.response.to.have.status(419));",
+              "if (pm.response.code !== 419) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"CSRF error\", () => pm.expect(json.message).to.equal(\"CSRF token mismatch.\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Postman-CSRF-Mode",
+            "value": "missing"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Must not be created\",\n  \"price\": \"10.00\",\n  \"stock\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products",
+        "description": "Expected HTTP 419. Intentionally omits the CSRF header."
+      }
+    },
+    {
+      "name": "14 - Invalid CSRF rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 419\", () => pm.response.to.have.status(419));",
+              "if (pm.response.code !== 419) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"CSRF error\", () => pm.expect(json.message).to.equal(\"CSRF token mismatch.\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Postman-CSRF-Mode",
+            "value": "invalid"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Must not be created\",\n  \"price\": \"10.00\",\n  \"stock\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products",
+        "description": "Expected HTTP 419. Intentionally sends a bad CSRF token."
+      }
+    },
+    {
+      "name": "15 - Invalid product rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Expected validation fields\", () => { pm.expect(json.errors).to.have.property(\"name\"); pm.expect(json.errors).to.have.property(\"price\"); pm.expect(json.errors).to.have.property(\"stock\"); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"\",\n  \"price\": -10,\n  \"stock\": -1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products",
+        "description": "Expected HTTP 422. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "16 - Product owner injection rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Expected validation fields\", () => { pm.expect(json.errors).to.have.property(\"user_id\"); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Ownership injection\",\n  \"price\": \"10.00\",\n  \"user_id\": 999\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products",
+        "description": "Expected HTTP 422. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "17 - Invalid profile rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Expected validation fields\", () => { pm.expect(json.errors).to.have.property(\"name\"); pm.expect(json.errors).to.have.property(\"email\"); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"\",\n  \"email\": \"invalid\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/profile",
+        "description": "Expected HTTP 422. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "18 - Invalid registration rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Expected validation fields\", () => { pm.expect(json.errors).to.have.property(\"name\"); pm.expect(json.errors).to.have.property(\"email\"); pm.expect(json.errors).to.have.property(\"password\"); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"\",\n  \"email\": \"invalid-email\",\n  \"password\": \"short\",\n  \"password_confirmation\": \"different\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/register",
+        "description": "Expected HTTP 422. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "19 - Rejected writes created no products",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Only original product exists\", () => {",
+              "        pm.expect(json.meta.total).to.equal(1);",
+              "        pm.expect(json.data[0].id).to.equal(Number(pm.collectionVariables.get(\"product_id\")));",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "20 - Logout user A",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Signed out\", () => pm.expect(json.message).to.equal(\"Signed out successfully.\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/logout",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "21 - Profile denied after logout",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "if (pm.response.code !== 401) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Unauthenticated\", () => pm.expect(json.message).to.equal(\"Unauthenticated.\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/profile",
+        "description": "Expected HTTP 401. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "22 - Refresh CSRF before login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "if (pm.response.code !== 204) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/sanctum/csrf-cookie",
+        "description": "Expected HTTP 204. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "23 - Wrong login rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Expected validation fields\", () => { pm.expect(json.errors).to.have.property(\"email\"); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{user_a_email}}\",\n  \"password\": \"WrongPassword123!\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/login",
+        "description": "Expected HTTP 422. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "24 - Wrong login did not authenticate",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "if (pm.response.code !== 401) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/profile",
+        "description": "Expected HTTP 401. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "25 - Login user A",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"User A login\", () => pm.expect(json.data.id).to.equal(Number(pm.collectionVariables.get(\"user_a_id\"))));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{user_a_email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/login",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "26 - Logout before second user",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/logout",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "27 - Refresh CSRF before second user",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "if (pm.response.code !== 204) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/sanctum/csrf-cookie",
+        "description": "Expected HTTP 204. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "28 - Register user B",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code !== 201) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.collectionVariables.set(\"user_b_id\", json.data.id);",
+              "    pm.test(\"Distinct user\", () => pm.expect(json.data.id).not.to.equal(Number(pm.collectionVariables.get(\"user_a_id\"))));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman User B\",\n  \"email\": \"{{user_b_email}}\",\n  \"password\": \"{{password}}\",\n  \"password_confirmation\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/register",
+        "description": "Expected HTTP 201. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "29 - User B cannot list user A products",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"A products are hidden\", () => pm.expect(json.meta.total).to.equal(0));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "30 - User B cannot view user A product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "if (pm.response.code !== 404) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 404. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "31 - User B cannot PATCH user A product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "if (pm.response.code !== 404) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Unauthorized change\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 404. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "32 - User B cannot PUT user A product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "if (pm.response.code !== 404) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"price\": \"1.00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 404. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "33 - User B cannot delete user A product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "if (pm.response.code !== 404) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 404. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "34 - User B creates own minimal product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code !== 201) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.collectionVariables.set(\"user_b_product_id\", json.data.id);",
+              "    pm.test(\"Defaults are returned\", () => {",
+              "        pm.expect(json.data.stock).to.equal(0);",
+              "        pm.expect(json.data.price).to.equal(\"0.00\");",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"User B Free Sample\",\n  \"price\": \"0.00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products",
+        "description": "Expected HTTP 201. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "35 - Delete only user B test product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products/{{user_b_product_id}}",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "36 - Logout user B",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/logout",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "37 - Refresh CSRF for user A",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "if (pm.response.code !== 204) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/sanctum/csrf-cookie",
+        "description": "Expected HTTP 204. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "38 - Login as original owner",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{user_a_email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/login",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "39 - Ownership failures preserved user A product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Original product unchanged\", () => {",
+              "        pm.expect(json.data.name).to.equal(\"Updated Keyboard\");",
+              "        pm.expect(json.data.price).to.equal(\"99.99\");",
+              "        pm.expect(json.data.stock).to.equal(8);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "40 - Password update needs current password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Expected validation fields\", () => { pm.expect(json.errors).to.have.property(\"current_password\"); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"password\": \"{{new_password}}\",\n  \"password_confirmation\": \"{{new_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/profile",
+        "description": "Expected HTTP 422. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "41 - Update password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Password hidden\", () => pm.expect(json.data).not.to.have.property(\"password\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"current_password\": \"{{password}}\",\n  \"password\": \"{{new_password}}\",\n  \"password_confirmation\": \"{{new_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/profile",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "42 - Logout after password change",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/logout",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "43 - Refresh CSRF after password change",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "if (pm.response.code !== 204) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/sanctum/csrf-cookie",
+        "description": "Expected HTTP 204. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "44 - Old password rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Expected validation fields\", () => { pm.expect(json.errors).to.have.property(\"email\"); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{user_a_email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/login",
+        "description": "Expected HTTP 422. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "45 - Login with new password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{user_a_email}}\",\n  \"password\": \"{{new_password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/login",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "46 - Delete only user A test product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Deleted\", () => pm.expect(json.message).to.equal(\"Product deleted successfully.\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "47 - Deleted product returns 404",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "if (pm.response.code !== 404) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products/{{product_id}}",
+        "description": "Expected HTTP 404. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "48 - Final logout",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/logout",
+        "description": "Expected HTTP 200. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "49 - Final profile is unauthenticated",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "if (pm.response.code !== 401) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/profile",
+        "description": "Expected HTTP 401. Uses the collection-level cookie/CSRF script."
+      }
+    }
+  ]
+}
+
