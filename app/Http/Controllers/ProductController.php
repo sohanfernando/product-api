@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\IndexProductRequest;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Http\Resources\ProductResource;
@@ -14,9 +15,9 @@ class ProductController extends Controller
 {
     public function __construct(private ProductService $products) {}
 
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(IndexProductRequest $request): AnonymousResourceCollection
     {
-        return ProductResource::collection($this->products->paginate($request->user()));
+        return ProductResource::collection($this->products->paginate($request->user(), $request->validated('search') ?? ''));
     }
 
     public function store(StoreProductRequest $request): JsonResponse

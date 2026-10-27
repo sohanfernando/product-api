@@ -2,7 +2,7 @@
   "info": {
     "name": "Laravel Product API - Complete Automated Tests",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Run all 49 requests in order with 1 iteration and 0 ms delay. Wait 65 seconds after previous registration/login testing before starting. Allowlist 127.0.0.1 in Cookies > Domains Allowlist. Use No Environment and enable the cookie jar. The first request generates fresh emails. Creates two disposable test users; deletes only products created by this run. Users remain in the database. Existing users/products are not targeted. Every modifying request automatically reads the latest CSRF cookie, except intentional missing/invalid-token tests. On unexpected status, the Runner stops. Re-run from 01 with new users if interrupted. Verified locally against MySQL with 123 passing assertions. Demo passwords are disposable test fixtures, not application credentials."
+    "description": "Run all 57 requests in order with 1 iteration and 0 ms delay. Wait 65 seconds after previous registration/login testing before starting. Allowlist 127.0.0.1 in Cookies > Domains Allowlist. Use No Environment and enable the cookie jar. The first request generates fresh emails. Creates two disposable test users; deletes only products created by this run. Users remain in the database. Existing users/products are not targeted. Every modifying request automatically reads the latest CSRF cookie, except intentional missing/invalid-token tests. On unexpected status, the Runner stops. Re-run from 01 with new users if interrupted. The original 49-request collection passed 123 assertions locally against MySQL. This updated version adds eight search checks; run it in Postman to verify the new assertions. Demo passwords are disposable test fixtures, not application credentials."
   },
   "auth": {
     "type": "noauth"
@@ -435,7 +435,235 @@
       }
     },
     {
-      "name": "09 - View product",
+      "name": "09 - Search by partial name with mixed case",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Name search returns the owned keyboard\", () => {",
+              "        pm.expect(json.meta.total).to.equal(1);",
+              "        pm.expect(json.data.map(product => product.id)).to.deep.equal([Number(pm.collectionVariables.get(\"product_id\"))]);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?search=KeYbOaRd",
+        "description": "Product search check. Expected HTTP 200. Uses the current session cookies; no CSRF header is needed for GET."
+      }
+    },
+    {
+      "name": "10 - Search by description",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Description search returns the owned keyboard\", () => {",
+              "        pm.expect(json.meta.total).to.equal(1);",
+              "        pm.expect(json.data.map(product => product.id)).to.deep.equal([Number(pm.collectionVariables.get(\"product_id\"))]);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?search=mechanical",
+        "description": "Product search check. Expected HTTP 200. Uses the current session cookies; no CSRF header is needed for GET."
+      }
+    },
+    {
+      "name": "11 - Search with no matches",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"No matches returns an empty list\", () => {",
+              "        pm.expect(json.meta.total).to.equal(0);",
+              "        pm.expect(json.data).to.deep.equal([]);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?search=no-such-product-search-term",
+        "description": "Product search check. Expected HTTP 200. Uses the current session cookies; no CSRF header is needed for GET."
+      }
+    },
+    {
+      "name": "12 - Blank search preserves the list",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Whitespace search preserves the owned list\", () => {",
+              "        pm.expect(json.meta.total).to.equal(1);",
+              "        pm.expect(json.data.map(product => product.id)).to.deep.equal([Number(pm.collectionVariables.get(\"product_id\"))]);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?search=%20%20",
+        "description": "Product search check. Expected HTTP 200. Uses the current session cookies; no CSRF header is needed for GET."
+      }
+    },
+    {
+      "name": "13 - Search array is rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Search validation error\", () => pm.expect(json.errors).to.have.property(\"search\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?search%5B%5D=keyboard",
+        "description": "Product search check. Expected HTTP 422. Uses the current session cookies; no CSRF header is needed for GET."
+      }
+    },
+    {
+      "name": "14 - Search over 255 characters is rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Search validation error\", () => pm.expect(json.errors).to.have.property(\"search\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?search=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "description": "Product search check. Expected HTTP 422. Uses the current session cookies; no CSRF header is needed for GET."
+      }
+    },
+    {
+      "name": "15 - View product",
       "event": [
         {
           "listen": "test",
@@ -471,7 +699,7 @@
       }
     },
     {
-      "name": "10 - PATCH product",
+      "name": "16 - PATCH product",
       "event": [
         {
           "listen": "test",
@@ -524,7 +752,7 @@
       }
     },
     {
-      "name": "11 - PUT product",
+      "name": "17 - PUT product",
       "event": [
         {
           "listen": "test",
@@ -577,7 +805,7 @@
       }
     },
     {
-      "name": "12 - Verify product persisted",
+      "name": "18 - Verify product persisted",
       "event": [
         {
           "listen": "test",
@@ -617,7 +845,7 @@
       }
     },
     {
-      "name": "13 - Missing CSRF rejected",
+      "name": "19 - Missing CSRF rejected",
       "event": [
         {
           "listen": "test",
@@ -670,7 +898,7 @@
       }
     },
     {
-      "name": "14 - Invalid CSRF rejected",
+      "name": "20 - Invalid CSRF rejected",
       "event": [
         {
           "listen": "test",
@@ -723,7 +951,7 @@
       }
     },
     {
-      "name": "15 - Invalid product rejected",
+      "name": "21 - Invalid product rejected",
       "event": [
         {
           "listen": "test",
@@ -772,7 +1000,7 @@
       }
     },
     {
-      "name": "16 - Product owner injection rejected",
+      "name": "22 - Product owner injection rejected",
       "event": [
         {
           "listen": "test",
@@ -821,7 +1049,7 @@
       }
     },
     {
-      "name": "17 - Invalid profile rejected",
+      "name": "23 - Invalid profile rejected",
       "event": [
         {
           "listen": "test",
@@ -870,7 +1098,7 @@
       }
     },
     {
-      "name": "18 - Invalid registration rejected",
+      "name": "24 - Invalid registration rejected",
       "event": [
         {
           "listen": "test",
@@ -919,7 +1147,7 @@
       }
     },
     {
-      "name": "19 - Rejected writes created no products",
+      "name": "25 - Rejected writes created no products",
       "event": [
         {
           "listen": "test",
@@ -958,7 +1186,7 @@
       }
     },
     {
-      "name": "20 - Logout user A",
+      "name": "26 - Logout user A",
       "event": [
         {
           "listen": "test",
@@ -994,7 +1222,7 @@
       }
     },
     {
-      "name": "21 - Profile denied after logout",
+      "name": "27 - Profile denied after logout",
       "event": [
         {
           "listen": "test",
@@ -1030,7 +1258,7 @@
       }
     },
     {
-      "name": "22 - Refresh CSRF before login",
+      "name": "28 - Refresh CSRF before login",
       "event": [
         {
           "listen": "test",
@@ -1065,7 +1293,7 @@
       }
     },
     {
-      "name": "23 - Wrong login rejected",
+      "name": "29 - Wrong login rejected",
       "event": [
         {
           "listen": "test",
@@ -1114,7 +1342,7 @@
       }
     },
     {
-      "name": "24 - Wrong login did not authenticate",
+      "name": "30 - Wrong login did not authenticate",
       "event": [
         {
           "listen": "test",
@@ -1150,7 +1378,7 @@
       }
     },
     {
-      "name": "25 - Login user A",
+      "name": "31 - Login user A",
       "event": [
         {
           "listen": "test",
@@ -1199,7 +1427,7 @@
       }
     },
     {
-      "name": "26 - Logout before second user",
+      "name": "32 - Logout before second user",
       "event": [
         {
           "listen": "test",
@@ -1235,7 +1463,7 @@
       }
     },
     {
-      "name": "27 - Refresh CSRF before second user",
+      "name": "33 - Refresh CSRF before second user",
       "event": [
         {
           "listen": "test",
@@ -1270,7 +1498,7 @@
       }
     },
     {
-      "name": "28 - Register user B",
+      "name": "34 - Register user B",
       "event": [
         {
           "listen": "test",
@@ -1320,7 +1548,7 @@
       }
     },
     {
-      "name": "29 - User B cannot list user A products",
+      "name": "35 - User B cannot list user A products",
       "event": [
         {
           "listen": "test",
@@ -1356,7 +1584,46 @@
       }
     },
     {
-      "name": "30 - User B cannot view user A product",
+      "name": "36 - User B search cannot reveal user A product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Search respects ownership\", () => {",
+              "        pm.expect(json.meta.total).to.equal(0);",
+              "        pm.expect(json.data).to.deep.equal([]);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?search=keyboard",
+        "description": "Product search check. Expected HTTP 200. Uses the current session cookies; no CSRF header is needed for GET."
+      }
+    },
+    {
+      "name": "37 - User B cannot view user A product",
       "event": [
         {
           "listen": "test",
@@ -1392,7 +1659,7 @@
       }
     },
     {
-      "name": "31 - User B cannot PATCH user A product",
+      "name": "38 - User B cannot PATCH user A product",
       "event": [
         {
           "listen": "test",
@@ -1441,7 +1708,7 @@
       }
     },
     {
-      "name": "32 - User B cannot PUT user A product",
+      "name": "39 - User B cannot PUT user A product",
       "event": [
         {
           "listen": "test",
@@ -1490,7 +1757,7 @@
       }
     },
     {
-      "name": "33 - User B cannot delete user A product",
+      "name": "40 - User B cannot delete user A product",
       "event": [
         {
           "listen": "test",
@@ -1526,7 +1793,7 @@
       }
     },
     {
-      "name": "34 - User B creates own minimal product",
+      "name": "41 - User B creates own minimal product",
       "event": [
         {
           "listen": "test",
@@ -1579,7 +1846,7 @@
       }
     },
     {
-      "name": "35 - Delete only user B test product",
+      "name": "42 - Delete only user B test product",
       "event": [
         {
           "listen": "test",
@@ -1615,7 +1882,7 @@
       }
     },
     {
-      "name": "36 - Logout user B",
+      "name": "43 - Logout user B",
       "event": [
         {
           "listen": "test",
@@ -1651,7 +1918,7 @@
       }
     },
     {
-      "name": "37 - Refresh CSRF for user A",
+      "name": "44 - Refresh CSRF for user A",
       "event": [
         {
           "listen": "test",
@@ -1686,7 +1953,7 @@
       }
     },
     {
-      "name": "38 - Login as original owner",
+      "name": "45 - Login as original owner",
       "event": [
         {
           "listen": "test",
@@ -1735,7 +2002,7 @@
       }
     },
     {
-      "name": "39 - Ownership failures preserved user A product",
+      "name": "46 - Ownership failures preserved user A product",
       "event": [
         {
           "listen": "test",
@@ -1775,7 +2042,7 @@
       }
     },
     {
-      "name": "40 - Password update needs current password",
+      "name": "47 - Password update needs current password",
       "event": [
         {
           "listen": "test",
@@ -1824,7 +2091,7 @@
       }
     },
     {
-      "name": "41 - Update password",
+      "name": "48 - Update password",
       "event": [
         {
           "listen": "test",
@@ -1873,7 +2140,7 @@
       }
     },
     {
-      "name": "42 - Logout after password change",
+      "name": "49 - Logout after password change",
       "event": [
         {
           "listen": "test",
@@ -1909,7 +2176,7 @@
       }
     },
     {
-      "name": "43 - Refresh CSRF after password change",
+      "name": "50 - Refresh CSRF after password change",
       "event": [
         {
           "listen": "test",
@@ -1944,7 +2211,7 @@
       }
     },
     {
-      "name": "44 - Old password rejected",
+      "name": "51 - Old password rejected",
       "event": [
         {
           "listen": "test",
@@ -1993,7 +2260,7 @@
       }
     },
     {
-      "name": "45 - Login with new password",
+      "name": "52 - Login with new password",
       "event": [
         {
           "listen": "test",
@@ -2042,7 +2309,7 @@
       }
     },
     {
-      "name": "46 - Delete only user A test product",
+      "name": "53 - Delete only user A test product",
       "event": [
         {
           "listen": "test",
@@ -2078,7 +2345,7 @@
       }
     },
     {
-      "name": "47 - Deleted product returns 404",
+      "name": "54 - Deleted product returns 404",
       "event": [
         {
           "listen": "test",
@@ -2114,7 +2381,7 @@
       }
     },
     {
-      "name": "48 - Final logout",
+      "name": "55 - Final logout",
       "event": [
         {
           "listen": "test",
@@ -2150,7 +2417,7 @@
       }
     },
     {
-      "name": "49 - Final profile is unauthenticated",
+      "name": "56 - Final profile is unauthenticated",
       "event": [
         {
           "listen": "test",
@@ -2184,7 +2451,42 @@
         "url": "{{base_url}}/api/profile",
         "description": "Expected HTTP 401. Uses the collection-level cookie/CSRF script."
       }
+    },
+    {
+      "name": "57 - Search requires authentication",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "if (pm.response.code !== 401) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Search is protected\", () => pm.expect(json.message).to.equal(\"Unauthenticated.\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?search=keyboard",
+        "description": "Product search check. Expected HTTP 401. Uses the current session cookies; no CSRF header is needed for GET."
+      }
     }
   ]
 }
-
