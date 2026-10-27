@@ -103,6 +103,8 @@ GET /api/products?search=keyboard&page=2
 
 Matching uses case-insensitive partial text. Surrounding whitespace is trimmed; an omitted, empty, or whitespace-only search returns the normal list. Search is limited to 255 characters; an array or longer value returns JSON 422. Percent (`%`) and underscore (`_`) are treated as literal characters rather than SQL wildcards. URL-encode query values when entering them manually, or use Postman's **Params** tab.
 
+SQLite connections register a Unicode-aware `lower` function backed by PHP's `mb_strtolower`, so accented uppercase letters in names and descriptions are lowercased consistently with the search term. MySQL continues to use its native `LOWER` function.
+
 Search retains the existing session authentication, ownership filtering, latest-first order, and 15-item pagination. Pagination links preserve the search query. No database migration is needed.
 
 The complete Postman collection includes eight search checks: partial name and description matches, no matches, blank input, invalid array and oversized input, ownership isolation, and guest access. To verify manually, sign in, create a product named `Keyboard`, then duplicate the list request and add **Params > search = keyboard**. Expect 200 and only matching owned products.
@@ -126,7 +128,7 @@ The complete run generates unique user emails, captures product IDs, and reads t
 
 Some requests intentionally expect 401, 404, 419, 422, or 429. Check the **test assertions**, not just whether HTTP statuses are 2xx. Unexpected statuses stop the run.
 
-The original 49-request collection was verified locally with **123 passing assertions** and no failures. The separate login/registration rate-limit collection also passed. The updated 57-request collection adds search coverage and needs a new Postman run to verify those additional assertions. These HTTP checks complement the SQLite feature tests below.
+Verification history: the original 49-request collection passed **123 assertions**. The updated **57-request collection, including all eight search checks, was then run successfully in Postman against the local MySQL-backed API**, with all checks passing. The separate login/registration rate-limit collection also passed. These HTTP checks complement the SQLite feature tests below; rerun them when application behavior changes.
 
 ## Individual requests: cookies and CSRF
 
@@ -255,7 +257,7 @@ Tests cover authentication and validation, password hashing, cookie/session cont
 
 The CSRF test replaces only Laravel's unit-test bypass method in a test-only subclass. It exercises the real cookie, session, encryption, and token-validation middleware. It checks valid tokens and rejected modifying requests. This supplements the manual Postman procedure.
 
-The combined API and search suite passed **62 automated tests with 314 assertions**. Product search includes 14 feature tests covering matches, ownership, pagination, validation, and literal special characters. The feature suite uses SQLite; the Postman collections were also run successfully against the local MySQL-backed API before search was added. Run the updated complete collection to check search over HTTP. No working database reset was performed.
+The combined API and search suite passed **65 automated tests with 323 assertions**. Product search includes 17 feature tests covering matches, accented text, ownership, pagination, validation, and literal special characters. The feature suite uses SQLite. Both the updated 57-request Postman collection (including search) and the separate rate-limit collection also passed against the local MySQL-backed API. The additional accented-text regression cases are covered by the automated suite; the reported Postman run predates that SQLite-specific fix. No working database reset was performed.
 
 ## Continuous integration
 

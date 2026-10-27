@@ -42,6 +42,28 @@ class ProductSearchTest extends TestCase
         $this->getJson('/api/products?search=monitor')->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.total', 0);
     }
 
+    public static function accentedSearchValues(): array
+    {
+        return [
+            'lowercase search against uppercase name' => ['éclair', 'Éclair', null],
+            'uppercase search against lowercase name' => ['ÉCLAIR', 'éclair', null],
+            'accented description' => ['crème', 'Dessert', 'CRÈME brûlée'],
+        ];
+    }
+
+    #[DataProvider('accentedSearchValues')]
+    public function test_search_matches_accented_text_case_insensitively(string $search, string $name, ?string $description): void
+    {
+        $user = User::factory()->create();
+        $product = $user->products()->create(['name' => $name, 'description' => $description, 'price' => 10]);
+        $user->products()->create(['name' => 'Unrelated product', 'price' => 5]);
+        User::factory()->create()->products()->create(['name' => $name, 'description' => $description, 'price' => 20]);
+        $this->actingAs($user, 'web');
+
+        $this->getJson('/api/products?'.http_build_query(['search' => $search]))
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $product->id);
+    }
+
     public static function emptySearchValues(): array
     {
         return ['omitted' => [''], 'empty' => ['?search='], 'whitespace' => ['?search=%20%20%20']];
