@@ -12,9 +12,9 @@ class ProductServiceImpl implements ProductService
 {
     public function __construct(private ProductRepository $products) {}
 
-    public function paginate(User $user): LengthAwarePaginator
+    public function paginate(User $user, string $search = ''): LengthAwarePaginator
     {
-        return $this->products->paginate($user);
+        return $this->products->paginate($user, $search);
     }
 
     public function find(User $user, int $id): Product

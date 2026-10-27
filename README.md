@@ -92,11 +92,28 @@ Profile, logout, and every product endpoint require authentication. PUT and PATC
 
 Product price is serialized as a two-decimal string to retain decimal formatting. User responses expose only id, name, and email.
 
+### Product search
+
+Search the signed-in user's product names and descriptions with an optional query parameter:
+
+```http
+GET /api/products?search=keyboard
+GET /api/products?search=keyboard&page=2
+```
+
+Matching uses case-insensitive partial text. Surrounding whitespace is trimmed; an omitted, empty, or whitespace-only search returns the normal list. Search is limited to 255 characters; an array or longer value returns JSON 422. Percent (`%`) and underscore (`_`) are treated as literal characters rather than SQL wildcards. URL-encode query values when entering them manually, or use Postman's **Params** tab.
+
+The SQLite connector registers a Unicode-aware `lower` function backed by PHP's `mb_strtolower` when a database connection actually opens, so accented uppercase letters are lowercased consistently with the search term. Merely resolving a connection during application boot or Composer package discovery does not open a database or require a database file. MySQL continues to use its native `LOWER` function.
+
+Search retains the existing session authentication, ownership filtering, latest-first order, and 15-item pagination. Pagination links preserve the search query. No database migration is needed.
+
+The complete Postman collection includes eight search checks: partial name and description matches, no matches, blank input, invalid array and oversized input, ownership isolation, and guest access. To verify manually, sign in, create a product named `Keyboard`, then duplicate the list request and add **Params > search = keyboard**. Expect 200 and only matching owned products.
+
 ## Run the included Postman collections
 
 Import these files into your existing Postman workspace:
 
-- [Complete API tests: 49 requests](Laravel-Product-API.postman_collection.json)
+- [Complete API tests: 57 requests](Laravel-Product-API.postman_collection.json)
 - [Rate-limit tests: 11 requests](Laravel-Product-API-Rate-Limits.postman_collection.json)
 
 1. Start MySQL and the Laravel server.
@@ -104,14 +121,14 @@ Import these files into your existing Postman workspace:
 3. Open a request's **Cookies > Domains Allowlist** and add `127.0.0.1` without a scheme or port.
 4. Keep **No Environment** selected. The collections provide their own `base_url` and test variables. Keep the cookie jar enabled.
 5. Wait at least 65 seconds after previous login/registration requests so rate-limit buckets can expire.
-6. Run the complete collection with all 49 requests selected, in order, **1 iteration**, and **0 ms delay**.
+6. Run the complete collection with all 57 requests selected, in order, **1 iteration**, and **0 ms delay**.
 7. Wait another 65 seconds, then run the separate rate-limit collection with all 11 requests, **1 iteration**, and **0 ms delay**. Avoid other login/registration requests during that run.
 
 The complete run generates unique user emails, captures product IDs, and reads the latest CSRF token from the cookie jar. It creates two disposable users and removes its own products. The users remain in MySQL. Existing records are not selected for deletion. Re-run from request 01 if interrupted; the next run uses fresh users. The rate-limit run uses invalid inputs and creates no records.
 
 Some requests intentionally expect 401, 404, 419, 422, or 429. Check the **test assertions**, not just whether HTTP statuses are 2xx. Unexpected statuses stop the run.
 
-The complete collection was verified locally with **123 passing assertions** and no failures. The separate login/registration rate-limit collection also passed. These HTTP checks ran against the local MySQL application; they complement the SQLite feature tests below.
+Verification history: the original 49-request collection passed **123 assertions**. The updated **57-request collection, including all eight search checks, was then run successfully in Postman against the local MySQL-backed API**, with all checks passing. The separate login/registration rate-limit collection also passed. These HTTP checks complement the SQLite feature tests below; rerun them when application behavior changes.
 
 ## Individual requests: cookies and CSRF
 
@@ -228,13 +245,19 @@ Or run the API feature tests only:
 php artisan test --compact tests/Feature/ApiTest.php
 ```
 
+Run the search feature tests with:
+
+```powershell
+php artisan test --compact tests/Feature/ProductSearchTest.php
+```
+
 phpunit.xml forces APP_ENV=testing, DB_CONNECTION=sqlite, DB_DATABASE=:memory:, an empty DB_URL, and array-backed sessions/cache. This is a separate, disposable database living in the test process; it never uses laravel_product_db. Tests/TestCase.php checks those database settings before migration traits can run and refuses to proceed if they differ. LazilyRefreshDatabase migrates only that isolated database. Do not repoint this suite at your working database.
 
 Tests cover authentication and validation, password hashing, cookie/session continuity, session rotation, logout and old-cookie rejection, profile updates, product CRUD and defaults, pagination, product ownership, mass-assignment protection, and both login limits plus registration throttling.
 
 The CSRF test replaces only Laravel's unit-test bypass method in a test-only subclass. It exercises the real cookie, session, encryption, and token-validation middleware. It checks valid tokens and rejected modifying requests. This supplements the manual Postman procedure.
 
-Local verification: **48 automated tests passed with 269 assertions**. The feature suite uses SQLite; the Postman collections were also run successfully against the local MySQL-backed API. No working database reset was performed.
+The combined suite passed **67 automated tests with 326 assertions**. Product search includes 17 feature tests covering matches, accented text, ownership, pagination, validation, and literal special characters. Two database bootstrap tests cover lazy connection resolution and Unicode function registration after reconnecting. The feature suite uses SQLite. Both the updated 57-request Postman collection (including search) and the separate rate-limit collection also passed against the local MySQL-backed API. The additional accented-text and bootstrap regression cases are covered by the automated suite; the reported Postman run predates those SQLite-specific fixes. No working database reset was performed.
 
 ## Continuous integration
 
