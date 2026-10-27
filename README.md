@@ -103,7 +103,7 @@ GET /api/products?search=keyboard&page=2
 
 Matching uses case-insensitive partial text. Surrounding whitespace is trimmed; an omitted, empty, or whitespace-only search returns the normal list. Search is limited to 255 characters; an array or longer value returns JSON 422. Percent (`%`) and underscore (`_`) are treated as literal characters rather than SQL wildcards. URL-encode query values when entering them manually, or use Postman's **Params** tab.
 
-SQLite connections register a Unicode-aware `lower` function backed by PHP's `mb_strtolower`, so accented uppercase letters in names and descriptions are lowercased consistently with the search term. MySQL continues to use its native `LOWER` function.
+The SQLite connector registers a Unicode-aware `lower` function backed by PHP's `mb_strtolower` when a database connection actually opens, so accented uppercase letters are lowercased consistently with the search term. Merely resolving a connection during application boot or Composer package discovery does not open a database or require a database file. MySQL continues to use its native `LOWER` function.
 
 Search retains the existing session authentication, ownership filtering, latest-first order, and 15-item pagination. Pagination links preserve the search query. No database migration is needed.
 
@@ -257,7 +257,7 @@ Tests cover authentication and validation, password hashing, cookie/session cont
 
 The CSRF test replaces only Laravel's unit-test bypass method in a test-only subclass. It exercises the real cookie, session, encryption, and token-validation middleware. It checks valid tokens and rejected modifying requests. This supplements the manual Postman procedure.
 
-The combined API and search suite passed **65 automated tests with 323 assertions**. Product search includes 17 feature tests covering matches, accented text, ownership, pagination, validation, and literal special characters. The feature suite uses SQLite. Both the updated 57-request Postman collection (including search) and the separate rate-limit collection also passed against the local MySQL-backed API. The additional accented-text regression cases are covered by the automated suite; the reported Postman run predates that SQLite-specific fix. No working database reset was performed.
+The combined suite passed **67 automated tests with 326 assertions**. Product search includes 17 feature tests covering matches, accented text, ownership, pagination, validation, and literal special characters. Two database bootstrap tests cover lazy connection resolution and Unicode function registration after reconnecting. The feature suite uses SQLite. Both the updated 57-request Postman collection (including search) and the separate rate-limit collection also passed against the local MySQL-backed API. The additional accented-text and bootstrap regression cases are covered by the automated suite; the reported Postman run predates those SQLite-specific fixes. No working database reset was performed.
 
 ## Continuous integration
 
