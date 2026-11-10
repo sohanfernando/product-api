@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class IndexProductRequest extends FormRequest
 {
@@ -24,6 +25,29 @@ class IndexProductRequest extends FormRequest
     {
         return [
             'search' => ['nullable', 'string', 'max:255'],
+
+            'min_price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:99999999.99',
+                'decimal:0,2',
+            ],
+
+            'max_price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:99999999.99',
+                'decimal:0,2',
+                Rule::when($this->filled('min_price'), ['gte:min_price']),
+            ],
+
+            'in_stock' => ['sometimes', 'boolean'],
+
+            'sort' => ['sometimes', Rule::in(['name', 'price', 'created_at'])],
+
+            'direction' => ['sometimes', Rule::in(['asc', 'desc'])],
         ];
     }
 }

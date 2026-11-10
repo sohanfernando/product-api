@@ -9,10 +9,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ProductRepository
 {
-    public function paginate(User $user, string $search = ''): LengthAwarePaginator
+    public function paginate(User $user, array $filters = []): LengthAwarePaginator
     {
         $query = $user->products();
-        $search = trim($search);
+        $search = trim($filters['search'] ?? '');
 
         if ($search !== '') {
             $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($search)).'%';
@@ -23,7 +23,30 @@ class ProductRepository
             });
         }
 
-        return $query->latest('id')->paginate(15)->withQueryString();
+        if (isset($filters['min_price'])) {
+            $query->where('price', '>=', $filters['min_price']);
+        }
+
+        if (isset($filters['max_price'])) {
+            $query->where('price', '<=', $filters['max_price']);
+        }
+
+        if (array_key_exists('in_stock', $filters)) {
+            $operator = (bool) $filters['in_stock'] ? '>' : '=';
+
+            $query->where('stock', $operator, 0);
+        }
+
+        $sort = $filters['sort'] ?? 'id';
+        $direction = $filters['direction'] ?? 'desc';
+
+        $query->orderBy($sort, $direction);
+
+        if ($sort !== 'id') {
+            $query->orderBy('id', $direction);
+        }
+
+        return $query->paginate(15)->withQueryString();
     }
 
     public function find(User $user, int $id): Product

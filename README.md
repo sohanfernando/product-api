@@ -113,7 +113,7 @@ The complete Postman collection includes eight search checks: partial name and d
 
 Import these files into your existing Postman workspace:
 
-- [Complete API tests: 57 requests](Laravel-Product-API.postman_collection.json)
+- [Complete API tests: 73 requests](Laravel-Product-API.postman_collection.json)
 - [Rate-limit tests: 11 requests](Laravel-Product-API-Rate-Limits.postman_collection.json)
 
 1. Start MySQL and the Laravel server.
@@ -121,7 +121,7 @@ Import these files into your existing Postman workspace:
 3. Open a request's **Cookies > Domains Allowlist** and add `127.0.0.1` without a scheme or port.
 4. Keep **No Environment** selected. The collections provide their own `base_url` and test variables. Keep the cookie jar enabled.
 5. Wait at least 65 seconds after previous login/registration requests so rate-limit buckets can expire.
-6. Run the complete collection with all 57 requests selected, in order, **1 iteration**, and **0 ms delay**.
+6. Run the complete collection with all 73 requests selected, in order, **1 iteration**, and **0 ms delay**.
 7. Wait another 65 seconds, then run the separate rate-limit collection with all 11 requests, **1 iteration**, and **0 ms delay**. Avoid other login/registration requests during that run.
 
 The complete run generates unique user emails, captures product IDs, and reads the latest CSRF token from the cookie jar. It creates two disposable users and removes its own products. The users remain in MySQL. Existing records are not selected for deletion. Re-run from request 01 if interrupted; the next run uses fresh users. The rate-limit run uses invalid inputs and creates no records.
@@ -129,6 +129,8 @@ The complete run generates unique user emails, captures product IDs, and reads t
 Some requests intentionally expect 401, 404, 419, 422, or 429. Check the **test assertions**, not just whether HTTP statuses are 2xx. Unexpected statuses stop the run.
 
 Verification history: the original 49-request collection passed **123 assertions**. The updated **57-request collection, including all eight search checks, was then run successfully in Postman against the local MySQL-backed API**, with all checks passing. The separate login/registration rate-limit collection also passed. These HTTP checks complement the SQLite feature tests below; rerun them when application behavior changes.
+
+The current 73-request version adds 16 filtering/sorting requests and needs a new Postman run. It tests combined filters, price exclusions, invalid input, ascending/descending prices, zero-price and out-of-stock values, ownership, and guest access. Two extra fixture products are created and deleted within the filtering block before the original search and CRUD checks continue. The rate-limit collection is unchanged.
 
 ## Individual requests: cookies and CSRF
 

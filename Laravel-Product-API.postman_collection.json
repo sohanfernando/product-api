@@ -2,7 +2,7 @@
   "info": {
     "name": "Laravel Product API - Complete Automated Tests",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Run all 57 requests in order with 1 iteration and 0 ms delay. Wait 65 seconds after previous registration/login testing before starting. Allowlist 127.0.0.1 in Cookies > Domains Allowlist. Use No Environment and enable the cookie jar. The first request generates fresh emails. Creates two disposable test users; deletes only products created by this run. Users remain in the database. Existing users/products are not targeted. Every modifying request automatically reads the latest CSRF cookie, except intentional missing/invalid-token tests. On unexpected status, the Runner stops. Re-run from 01 with new users if interrupted. The original 49-request collection passed 123 assertions locally against MySQL. The updated 57-request collection, including all eight search checks, was subsequently run successfully in Postman against MySQL with all checks passing. The accented-text regression added during review is covered separately by the automated feature suite. Demo passwords are disposable test fixtures, not application credentials."
+    "description": "Run all 73 requests in order with 1 iteration and 0 ms delay. Wait 65 seconds after previous registration/login testing before starting. Allowlist 127.0.0.1 in Cookies > Domains Allowlist. Use No Environment and enable the cookie jar. The first request generates fresh emails. Creates two disposable test users; deletes only products created by this run. Users remain in the database. Existing users/products are not targeted. Every modifying request automatically reads the latest CSRF cookie, except intentional missing/invalid-token tests. On unexpected status, the Runner stops. Re-run from 01 with new users if interrupted. The original 49-request collection passed 123 assertions locally against MySQL. The updated 57-request collection, including all eight search checks, was subsequently run successfully in Postman against MySQL with all checks passing. The accented-text regression added during review is covered separately by the automated feature suite. Demo passwords are disposable test fixtures, not application credentials. This version adds 16 filtering/sorting requests, including temporary cheap and free product fixtures, numeric price ordering, zero-value filters, invalid input, ownership, and guest protection. The temporary fixture IDs are captured automatically and both products are deleted before existing search and CRUD checks. The new filtering/sorting requests need a fresh Postman run; previous passing results refer to the earlier 57-request version."
   },
   "auth": {
     "type": "noauth"
@@ -52,6 +52,16 @@
       "key": "user_b_product_id",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "filter_cheap_product_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "filter_free_product_id",
+      "value": "",
+      "type": "string"
     }
   ],
   "event": [
@@ -68,7 +78,7 @@
           "    const run = Date.now().toString() + Math.random().toString(16).slice(2, 8);",
           "    pm.collectionVariables.set(\"user_a_email\", \"postman.a.\" + run + \"@example.test\");",
           "    pm.collectionVariables.set(\"user_b_email\", \"postman.b.\" + run + \"@example.test\");",
-          "    [\"user_a_id\", \"user_b_id\", \"product_id\", \"user_b_product_id\"].forEach(key => pm.collectionVariables.unset(key));",
+          "    [\"user_a_id\", \"user_b_id\", \"product_id\", \"user_b_product_id\", \"filter_cheap_product_id\", \"filter_free_product_id\"].forEach(key => pm.collectionVariables.unset(key));",
           "}",
           "const url = pm.variables.replaceIn(pm.request.url.toString());",
           "if (/\\/products\\//.test(url)) {",
@@ -435,7 +445,572 @@
       }
     },
     {
-      "name": "09 - Search by partial name with mixed case",
+      "name": "09 - Combined product filters and sorting",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Combined filters return the owned keyboard\", () => {",
+              "        const expected = [Number(pm.collectionVariables.get(\"product_id\"))];",
+              "        pm.expect(json.data.map(product => product.id)).to.deep.equal(expected);",
+              "        pm.expect(json.meta.total).to.equal(expected.length);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?search=keyboard&min_price=100&max_price=150&in_stock=1&sort=price&direction=asc",
+        "description": "Filtering/sorting verification. Expected HTTP 200. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "10 - Price range excludes nonmatching products",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"No products match the price range\", () => {",
+              "        const expected = [];",
+              "        pm.expect(json.data.map(product => product.id)).to.deep.equal(expected);",
+              "        pm.expect(json.meta.total).to.equal(expected.length);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?min_price=200&max_price=300",
+        "description": "Filtering/sorting verification. Expected HTTP 200. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "11 - Reversed price range is rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Invalid parameters are rejected\", () => {",
+              "        pm.expect(json.errors).to.have.property(\"max_price\");",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?min_price=200&max_price=50",
+        "description": "Filtering/sorting verification. Expected HTTP 422. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "12 - Unsupported sorting is rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Invalid parameters are rejected\", () => {",
+              "        pm.expect(json.errors).to.have.property(\"sort\");",
+              "        pm.expect(json.errors).to.have.property(\"direction\");",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?sort=password&direction=sideways",
+        "description": "Filtering/sorting verification. Expected HTTP 422. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "13 - Invalid stock flag is rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Invalid parameters are rejected\", () => {",
+              "        pm.expect(json.errors).to.have.property(\"in_stock\");",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?in_stock=invalid",
+        "description": "Filtering/sorting verification. Expected HTTP 422. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "14 - Negative minimum price is rejected",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "if (pm.response.code !== 422) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Invalid parameters are rejected\", () => {",
+              "        pm.expect(json.errors).to.have.property(\"min_price\");",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?min_price=-1",
+        "description": "Filtering/sorting verification. Expected HTTP 422. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "15 - Create temporary cheap filtering product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code !== 201) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.collectionVariables.set(\"filter_cheap_product_id\", json.data.id);",
+              "    pm.test(\"Cheap fixture values\", () => { pm.expect(json.data.price).to.equal(\"20.00\"); pm.expect(json.data.stock).to.equal(2); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Filter Sample Cheap\",\n  \"description\": \"Temporary fixture for filtering tests\",\n  \"price\": \"20.00\",\n  \"stock\": 2\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products",
+        "description": "Filtering/sorting verification. Expected HTTP 201. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "16 - Create temporary free out-of-stock product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code !== 201) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.collectionVariables.set(\"filter_free_product_id\", json.data.id);",
+              "    pm.test(\"Free fixture values\", () => { pm.expect(json.data.price).to.equal(\"0.00\"); pm.expect(json.data.stock).to.equal(0); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Filter Sample Free\",\n  \"description\": \"Temporary fixture for zero-value tests\",\n  \"price\": \"0.00\",\n  \"stock\": 0\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{base_url}}/api/products",
+        "description": "Filtering/sorting verification. Expected HTTP 201. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "17 - Sort multiple products by ascending price",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Prices ascend numerically\", () => {",
+              "        const expected = [Number(pm.collectionVariables.get(\"filter_free_product_id\")), Number(pm.collectionVariables.get(\"filter_cheap_product_id\")), Number(pm.collectionVariables.get(\"product_id\"))];",
+              "        pm.expect(json.data.map(product => product.id)).to.deep.equal(expected);",
+              "        pm.expect(json.meta.total).to.equal(expected.length);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?sort=price&direction=asc",
+        "description": "Filtering/sorting verification. Expected HTTP 200. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "18 - Sort multiple products by descending price",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Prices descend numerically\", () => {",
+              "        const expected = [Number(pm.collectionVariables.get(\"product_id\")), Number(pm.collectionVariables.get(\"filter_cheap_product_id\")), Number(pm.collectionVariables.get(\"filter_free_product_id\"))];",
+              "        pm.expect(json.data.map(product => product.id)).to.deep.equal(expected);",
+              "        pm.expect(json.meta.total).to.equal(expected.length);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?sort=price&direction=desc",
+        "description": "Filtering/sorting verification. Expected HTTP 200. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "19 - Zero price and out-of-stock filters are applied",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Zero values select the free out-of-stock product\", () => {",
+              "        const expected = [Number(pm.collectionVariables.get(\"filter_free_product_id\"))];",
+              "        pm.expect(json.data.map(product => product.id)).to.deep.equal(expected);",
+              "        pm.expect(json.meta.total).to.equal(expected.length);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?min_price=0&max_price=0&in_stock=0",
+        "description": "Filtering/sorting verification. Expected HTTP 200. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "20 - In-stock filtering excludes unavailable products",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Only available products remain in price order\", () => {",
+              "        const expected = [Number(pm.collectionVariables.get(\"filter_cheap_product_id\")), Number(pm.collectionVariables.get(\"product_id\"))];",
+              "        pm.expect(json.data.map(product => product.id)).to.deep.equal(expected);",
+              "        pm.expect(json.meta.total).to.equal(expected.length);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?in_stock=1&sort=price&direction=asc",
+        "description": "Filtering/sorting verification. Expected HTTP 200. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "21 - Delete only the temporary cheap fixture",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Cheap fixture deleted\", () => pm.expect(json.message).to.equal(\"Product deleted successfully.\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products/{{filter_cheap_product_id}}",
+        "description": "Filtering/sorting verification. Expected HTTP 200. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "22 - Delete only the temporary free fixture",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Free fixture deleted\", () => pm.expect(json.message).to.equal(\"Product deleted successfully.\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products/{{filter_free_product_id}}",
+        "description": "Filtering/sorting verification. Expected HTTP 200. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "23 - Search by partial name with mixed case",
       "event": [
         {
           "listen": "test",
@@ -474,7 +1049,7 @@
       }
     },
     {
-      "name": "10 - Search by description",
+      "name": "24 - Search by description",
       "event": [
         {
           "listen": "test",
@@ -513,7 +1088,7 @@
       }
     },
     {
-      "name": "11 - Search with no matches",
+      "name": "25 - Search with no matches",
       "event": [
         {
           "listen": "test",
@@ -552,7 +1127,7 @@
       }
     },
     {
-      "name": "12 - Blank search preserves the list",
+      "name": "26 - Blank search preserves the list",
       "event": [
         {
           "listen": "test",
@@ -591,7 +1166,7 @@
       }
     },
     {
-      "name": "13 - Search array is rejected",
+      "name": "27 - Search array is rejected",
       "event": [
         {
           "listen": "test",
@@ -627,7 +1202,7 @@
       }
     },
     {
-      "name": "14 - Search over 255 characters is rejected",
+      "name": "28 - Search over 255 characters is rejected",
       "event": [
         {
           "listen": "test",
@@ -663,7 +1238,7 @@
       }
     },
     {
-      "name": "15 - View product",
+      "name": "29 - View product",
       "event": [
         {
           "listen": "test",
@@ -699,7 +1274,7 @@
       }
     },
     {
-      "name": "16 - PATCH product",
+      "name": "30 - PATCH product",
       "event": [
         {
           "listen": "test",
@@ -752,7 +1327,7 @@
       }
     },
     {
-      "name": "17 - PUT product",
+      "name": "31 - PUT product",
       "event": [
         {
           "listen": "test",
@@ -805,7 +1380,7 @@
       }
     },
     {
-      "name": "18 - Verify product persisted",
+      "name": "32 - Verify product persisted",
       "event": [
         {
           "listen": "test",
@@ -845,7 +1420,7 @@
       }
     },
     {
-      "name": "19 - Missing CSRF rejected",
+      "name": "33 - Missing CSRF rejected",
       "event": [
         {
           "listen": "test",
@@ -898,7 +1473,7 @@
       }
     },
     {
-      "name": "20 - Invalid CSRF rejected",
+      "name": "34 - Invalid CSRF rejected",
       "event": [
         {
           "listen": "test",
@@ -951,7 +1526,7 @@
       }
     },
     {
-      "name": "21 - Invalid product rejected",
+      "name": "35 - Invalid product rejected",
       "event": [
         {
           "listen": "test",
@@ -1000,7 +1575,7 @@
       }
     },
     {
-      "name": "22 - Product owner injection rejected",
+      "name": "36 - Product owner injection rejected",
       "event": [
         {
           "listen": "test",
@@ -1049,7 +1624,7 @@
       }
     },
     {
-      "name": "23 - Invalid profile rejected",
+      "name": "37 - Invalid profile rejected",
       "event": [
         {
           "listen": "test",
@@ -1098,7 +1673,7 @@
       }
     },
     {
-      "name": "24 - Invalid registration rejected",
+      "name": "38 - Invalid registration rejected",
       "event": [
         {
           "listen": "test",
@@ -1147,7 +1722,7 @@
       }
     },
     {
-      "name": "25 - Rejected writes created no products",
+      "name": "39 - Rejected writes created no products",
       "event": [
         {
           "listen": "test",
@@ -1186,7 +1761,7 @@
       }
     },
     {
-      "name": "26 - Logout user A",
+      "name": "40 - Logout user A",
       "event": [
         {
           "listen": "test",
@@ -1222,7 +1797,7 @@
       }
     },
     {
-      "name": "27 - Profile denied after logout",
+      "name": "41 - Profile denied after logout",
       "event": [
         {
           "listen": "test",
@@ -1258,7 +1833,7 @@
       }
     },
     {
-      "name": "28 - Refresh CSRF before login",
+      "name": "42 - Refresh CSRF before login",
       "event": [
         {
           "listen": "test",
@@ -1293,7 +1868,7 @@
       }
     },
     {
-      "name": "29 - Wrong login rejected",
+      "name": "43 - Wrong login rejected",
       "event": [
         {
           "listen": "test",
@@ -1342,7 +1917,7 @@
       }
     },
     {
-      "name": "30 - Wrong login did not authenticate",
+      "name": "44 - Wrong login did not authenticate",
       "event": [
         {
           "listen": "test",
@@ -1378,7 +1953,7 @@
       }
     },
     {
-      "name": "31 - Login user A",
+      "name": "45 - Login user A",
       "event": [
         {
           "listen": "test",
@@ -1427,7 +2002,7 @@
       }
     },
     {
-      "name": "32 - Logout before second user",
+      "name": "46 - Logout before second user",
       "event": [
         {
           "listen": "test",
@@ -1463,7 +2038,7 @@
       }
     },
     {
-      "name": "33 - Refresh CSRF before second user",
+      "name": "47 - Refresh CSRF before second user",
       "event": [
         {
           "listen": "test",
@@ -1498,7 +2073,7 @@
       }
     },
     {
-      "name": "34 - Register user B",
+      "name": "48 - Register user B",
       "event": [
         {
           "listen": "test",
@@ -1548,7 +2123,7 @@
       }
     },
     {
-      "name": "35 - User B cannot list user A products",
+      "name": "49 - User B cannot list user A products",
       "event": [
         {
           "listen": "test",
@@ -1584,7 +2159,47 @@
       }
     },
     {
-      "name": "36 - User B search cannot reveal user A product",
+      "name": "50 - User B filters cannot reveal user A product",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code !== 200) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Ownership applies to combined filters\", () => {",
+              "        const expected = [];",
+              "        pm.expect(json.data.map(product => product.id)).to.deep.equal(expected);",
+              "        pm.expect(json.meta.total).to.equal(expected.length);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?search=keyboard&min_price=0&max_price=200&in_stock=1&sort=price&direction=asc",
+        "description": "Filtering/sorting verification. Expected HTTP 200. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
+      }
+    },
+    {
+      "name": "51 - User B search cannot reveal user A product",
       "event": [
         {
           "listen": "test",
@@ -1623,7 +2238,7 @@
       }
     },
     {
-      "name": "37 - User B cannot view user A product",
+      "name": "52 - User B cannot view user A product",
       "event": [
         {
           "listen": "test",
@@ -1659,7 +2274,7 @@
       }
     },
     {
-      "name": "38 - User B cannot PATCH user A product",
+      "name": "53 - User B cannot PATCH user A product",
       "event": [
         {
           "listen": "test",
@@ -1708,7 +2323,7 @@
       }
     },
     {
-      "name": "39 - User B cannot PUT user A product",
+      "name": "54 - User B cannot PUT user A product",
       "event": [
         {
           "listen": "test",
@@ -1757,7 +2372,7 @@
       }
     },
     {
-      "name": "40 - User B cannot delete user A product",
+      "name": "55 - User B cannot delete user A product",
       "event": [
         {
           "listen": "test",
@@ -1793,7 +2408,7 @@
       }
     },
     {
-      "name": "41 - User B creates own minimal product",
+      "name": "56 - User B creates own minimal product",
       "event": [
         {
           "listen": "test",
@@ -1846,7 +2461,7 @@
       }
     },
     {
-      "name": "42 - Delete only user B test product",
+      "name": "57 - Delete only user B test product",
       "event": [
         {
           "listen": "test",
@@ -1882,7 +2497,7 @@
       }
     },
     {
-      "name": "43 - Logout user B",
+      "name": "58 - Logout user B",
       "event": [
         {
           "listen": "test",
@@ -1918,7 +2533,7 @@
       }
     },
     {
-      "name": "44 - Refresh CSRF for user A",
+      "name": "59 - Refresh CSRF for user A",
       "event": [
         {
           "listen": "test",
@@ -1953,7 +2568,7 @@
       }
     },
     {
-      "name": "45 - Login as original owner",
+      "name": "60 - Login as original owner",
       "event": [
         {
           "listen": "test",
@@ -2002,7 +2617,7 @@
       }
     },
     {
-      "name": "46 - Ownership failures preserved user A product",
+      "name": "61 - Ownership failures preserved user A product",
       "event": [
         {
           "listen": "test",
@@ -2042,7 +2657,7 @@
       }
     },
     {
-      "name": "47 - Password update needs current password",
+      "name": "62 - Password update needs current password",
       "event": [
         {
           "listen": "test",
@@ -2091,7 +2706,7 @@
       }
     },
     {
-      "name": "48 - Update password",
+      "name": "63 - Update password",
       "event": [
         {
           "listen": "test",
@@ -2140,7 +2755,7 @@
       }
     },
     {
-      "name": "49 - Logout after password change",
+      "name": "64 - Logout after password change",
       "event": [
         {
           "listen": "test",
@@ -2176,7 +2791,7 @@
       }
     },
     {
-      "name": "50 - Refresh CSRF after password change",
+      "name": "65 - Refresh CSRF after password change",
       "event": [
         {
           "listen": "test",
@@ -2211,7 +2826,7 @@
       }
     },
     {
-      "name": "51 - Old password rejected",
+      "name": "66 - Old password rejected",
       "event": [
         {
           "listen": "test",
@@ -2260,7 +2875,7 @@
       }
     },
     {
-      "name": "52 - Login with new password",
+      "name": "67 - Login with new password",
       "event": [
         {
           "listen": "test",
@@ -2309,7 +2924,7 @@
       }
     },
     {
-      "name": "53 - Delete only user A test product",
+      "name": "68 - Delete only user A test product",
       "event": [
         {
           "listen": "test",
@@ -2345,7 +2960,7 @@
       }
     },
     {
-      "name": "54 - Deleted product returns 404",
+      "name": "69 - Deleted product returns 404",
       "event": [
         {
           "listen": "test",
@@ -2381,7 +2996,7 @@
       }
     },
     {
-      "name": "55 - Final logout",
+      "name": "70 - Final logout",
       "event": [
         {
           "listen": "test",
@@ -2417,7 +3032,7 @@
       }
     },
     {
-      "name": "56 - Final profile is unauthenticated",
+      "name": "71 - Final profile is unauthenticated",
       "event": [
         {
           "listen": "test",
@@ -2453,7 +3068,7 @@
       }
     },
     {
-      "name": "57 - Search requires authentication",
+      "name": "72 - Search requires authentication",
       "event": [
         {
           "listen": "test",
@@ -2486,6 +3101,42 @@
         ],
         "url": "{{base_url}}/api/products?search=keyboard",
         "description": "Product search check. Expected HTTP 401. Uses the current session cookies; no CSRF header is needed for GET."
+      }
+    },
+    {
+      "name": "73 - Filtering requires authentication",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "if (pm.response.code !== 401) {",
+              "    pm.execution.setNextRequest(null);",
+              "} else {",
+              "    const json = pm.response.json();",
+              "    pm.test(\"Response is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+              "    pm.test(\"Filters require a session\", () => pm.expect(json.message).to.equal(\"Unauthenticated.\"));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Origin",
+            "value": "{{base_url}}"
+          }
+        ],
+        "url": "{{base_url}}/api/products?min_price=0&in_stock=1&sort=price&direction=asc",
+        "description": "Filtering/sorting verification. Expected HTTP 401. Run in collection order: temporary products are created and deleted before the original search checks. Uses the collection-level cookie/CSRF script."
       }
     }
   ]

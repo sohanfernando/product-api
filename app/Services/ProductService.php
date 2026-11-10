@@ -8,7 +8,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface ProductService
 {
-    public function paginate(User $user, string $search = ''): LengthAwarePaginator;
+    public function paginate(User $user, array $filters = []): LengthAwarePaginator;
 
     public function find(User $user, int $id): Product;
 
