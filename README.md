@@ -109,11 +109,33 @@ Search retains the existing session authentication, ownership filtering, latest-
 
 The complete Postman collection includes eight search checks: partial name and description matches, no matches, blank input, invalid array and oversized input, ownership isolation, and guest access. To verify manually, sign in, create a product named `Keyboard`, then duplicate the list request and add **Params > search = keyboard**. Expect 200 and only matching owned products.
 
+### Product filtering and sorting
+
+Combine optional filters and sorting with search on the same product-list endpoint:
+
+```http
+GET /api/products?search=keyboard&min_price=50&max_price=200&in_stock=1&sort=price&direction=asc
+```
+
+| Parameter | Accepted values | Behavior |
+| --- | --- | --- |
+| `min_price` | Number from `0` to `99999999.99`, with up to two decimal places | Includes products priced at or above this amount |
+| `max_price` | Same numeric limits as `min_price` | Includes products priced at or below this amount; must be at least `min_price` when both are supplied |
+| `in_stock` | `1` or `0` in query strings | `1` selects stock greater than zero; `0` selects stock equal to zero |
+| `sort` | `name`, `price`, or `created_at` | Selects the ordering column |
+| `direction` | `asc` or `desc` | Selects the ordering direction; defaults to `desc` |
+
+All parameters are optional. Omitted or empty price bounds add no price constraint. Omitting `in_stock` includes both stock states; `in_stock=0` is an active filter, not an omitted value. Zero is also a valid price bound. In query strings, use `1`/`0` for the stock flag rather than the words `true`/`false`.
+
+Without `sort`, results retain ID ordering, descending unless `direction=asc` is supplied. When sorting by another column, ID is the secondary ordering key in the same direction, so ties have a consistent order. `sort` and `direction` must have valid nonempty values if supplied. Invalid parameters, including negative prices, more than two decimal places, a reversed price range, unsupported sort columns, or invalid stock flags, return JSON **422** with field errors.
+
+Filters narrow the authenticated user's products and never expose another user's records. They combine with search using AND conditions. Results retain 15-item pagination, and page links preserve search, filters, and sorting parameters.
+
 ## Run the included Postman collections
 
 Import these files into your existing Postman workspace:
 
-- [Complete API tests: 57 requests](Laravel-Product-API.postman_collection.json)
+- [Complete API tests: 73 requests](Laravel-Product-API.postman_collection.json)
 - [Rate-limit tests: 11 requests](Laravel-Product-API-Rate-Limits.postman_collection.json)
 
 1. Start MySQL and the Laravel server.
@@ -121,7 +143,7 @@ Import these files into your existing Postman workspace:
 3. Open a request's **Cookies > Domains Allowlist** and add `127.0.0.1` without a scheme or port.
 4. Keep **No Environment** selected. The collections provide their own `base_url` and test variables. Keep the cookie jar enabled.
 5. Wait at least 65 seconds after previous login/registration requests so rate-limit buckets can expire.
-6. Run the complete collection with all 57 requests selected, in order, **1 iteration**, and **0 ms delay**.
+6. Run the complete collection with all 73 requests selected, in order, **1 iteration**, and **0 ms delay**.
 7. Wait another 65 seconds, then run the separate rate-limit collection with all 11 requests, **1 iteration**, and **0 ms delay**. Avoid other login/registration requests during that run.
 
 The complete run generates unique user emails, captures product IDs, and reads the latest CSRF token from the cookie jar. It creates two disposable users and removes its own products. The users remain in MySQL. Existing records are not selected for deletion. Re-run from request 01 if interrupted; the next run uses fresh users. The rate-limit run uses invalid inputs and creates no records.
@@ -129,6 +151,8 @@ The complete run generates unique user emails, captures product IDs, and reads t
 Some requests intentionally expect 401, 404, 419, 422, or 429. Check the **test assertions**, not just whether HTTP statuses are 2xx. Unexpected statuses stop the run.
 
 Verification history: the original 49-request collection passed **123 assertions**. The updated **57-request collection, including all eight search checks, was then run successfully in Postman against the local MySQL-backed API**, with all checks passing. The separate login/registration rate-limit collection also passed. These HTTP checks complement the SQLite feature tests below; rerun them when application behavior changes.
+
+The current **73-request collection, including all 16 filtering/sorting requests, was run successfully in Postman with all checks passing**. It tests combined filters, price exclusions, invalid input, ascending/descending prices, zero-price and out-of-stock values, ownership, and guest access. Two extra fixture products are created and deleted within the filtering block before the original search and CRUD checks continue. The rate-limit collection is unchanged.
 
 ## Individual requests: cookies and CSRF
 
@@ -257,7 +281,7 @@ Tests cover authentication and validation, password hashing, cookie/session cont
 
 The CSRF test replaces only Laravel's unit-test bypass method in a test-only subclass. It exercises the real cookie, session, encryption, and token-validation middleware. It checks valid tokens and rejected modifying requests. This supplements the manual Postman procedure.
 
-The combined suite passed **67 automated tests with 326 assertions**. Product search includes 17 feature tests covering matches, accented text, ownership, pagination, validation, and literal special characters. Two database bootstrap tests cover lazy connection resolution and Unicode function registration after reconnecting. The feature suite uses SQLite. Both the updated 57-request Postman collection (including search) and the separate rate-limit collection also passed against the local MySQL-backed API. The additional accented-text and bootstrap regression cases are covered by the automated suite; the reported Postman run predates those SQLite-specific fixes. No working database reset was performed.
+The combined suite passed **71 automated tests with 348 assertions**. Product search includes 17 feature tests covering matches, accented text, ownership, pagination, validation, and literal special characters. Two database bootstrap tests cover lazy connection resolution and Unicode function registration after reconnecting. Four filtering/sorting tests cover combined options, zero values, invalid parameters, and pagination with tied prices. The feature suite uses SQLite. The 73-request Postman collection also passed against the local MySQL-backed API; the separate rate-limit collection passed previously and is unchanged. No working database reset was performed.
 
 ## Continuous integration
 

@@ -9,10 +9,22 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ProductRepository
 {
-    public function paginate(User $user, string $search = ''): LengthAwarePaginator
+    /**
+     * Paginate the user's products using validated search, filter, and sorting options.
+     *
+     * @param  array{
+     *     search?: string|null,
+     *     min_price?: numeric-string|int|float|null,
+     *     max_price?: numeric-string|int|float|null,
+     *     in_stock?: bool|0|1|'0'|'1',
+     *     sort?: 'name'|'price'|'created_at',
+     *     direction?: 'asc'|'desc'
+     * }  $filters
+     */
+    public function paginate(User $user, array $filters = []): LengthAwarePaginator
     {
         $query = $user->products();
-        $search = trim($search);
+        $search = trim($filters['search'] ?? '');
 
         if ($search !== '') {
             $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($search)).'%';
@@ -23,7 +35,30 @@ class ProductRepository
             });
         }
 
-        return $query->latest('id')->paginate(15)->withQueryString();
+        if (isset($filters['min_price'])) {
+            $query->where('price', '>=', $filters['min_price']);
+        }
+
+        if (isset($filters['max_price'])) {
+            $query->where('price', '<=', $filters['max_price']);
+        }
+
+        if (array_key_exists('in_stock', $filters)) {
+            $operator = (bool) $filters['in_stock'] ? '>' : '=';
+
+            $query->where('stock', $operator, 0);
+        }
+
+        $sort = $filters['sort'] ?? 'id';
+        $direction = $filters['direction'] ?? 'desc';
+
+        $query->orderBy($sort, $direction);
+
+        if ($sort !== 'id') {
+            $query->orderBy('id', $direction);
+        }
+
+        return $query->paginate(15)->withQueryString();
     }
 
     public function find(User $user, int $id): Product
