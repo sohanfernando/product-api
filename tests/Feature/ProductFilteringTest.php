@@ -139,6 +139,9 @@ class ProductFilteringTest extends TestCase
             ]);
     }
 
+    /**
+     * Verify filter state and ID tie-breaking remain consistent across result pages.
+     */
     public function test_filtered_pagination_preserves_parameters_and_breaks_price_ties_by_id(): void
     {
         $user = User::factory()->create();

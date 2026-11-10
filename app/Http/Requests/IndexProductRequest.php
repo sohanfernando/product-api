@@ -17,7 +17,7 @@ class IndexProductRequest extends FormRequest
     }
 
     /**
-     * Get the validation rules that apply to the request.
+     * Validate optional search, inclusive price bounds, stock flags, and allowed sorting values.
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */

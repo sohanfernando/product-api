@@ -15,6 +15,9 @@ class ProductController extends Controller
 {
     public function __construct(private ProductService $products) {}
 
+    /**
+     * Return the signed-in user's products with validated filters and pagination.
+     */
     public function index(IndexProductRequest $request): AnonymousResourceCollection
     {
         return ProductResource::collection($this->products->paginate($request->user(), $request->validated()));
